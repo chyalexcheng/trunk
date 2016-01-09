@@ -4,7 +4,7 @@
 
 # Experiment beam-like behaviour with chained cylinders + CohFrict connexions
 
-from yade.gridpfacet import *
+#~ from yade.gridpfacet import *
 
 young=1.0e10
 poisson=4

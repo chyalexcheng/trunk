@@ -1,7 +1,7 @@
 # encoding: utf-8
 
 from yade import pack,geom,qt
-from yade.gridpfacet import *
+#~ from yade.gridpfacet import *
 from pylab import *
 qt.View()
 
