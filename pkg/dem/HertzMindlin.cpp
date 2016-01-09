@@ -20,6 +20,8 @@ Real Law2_ScGeom_MindlinPhys_Mindlin::getshearEnergy() {return (Real) shearEnerg
 Real Law2_ScGeom_MindlinPhys_Mindlin::getnormDampDissip() {return (Real) normDampDissip;}
 Real Law2_ScGeom_MindlinPhys_Mindlin::getshearDampDissip() {return (Real) shearDampDissip;}
 
+Vector3r MindlinPhys::getRotStiffness() {return Vector3r(ktw,kr,kr);}
+
 /******************** Ip2_FrictMat_FrictMat_MindlinPhys *******/
 CREATE_LOGGER(Ip2_FrictMat_FrictMat_MindlinPhys);
 

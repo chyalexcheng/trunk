@@ -26,6 +26,8 @@ The DMT formulation is also considered (for adhesive particles, rigid and small 
 class MindlinPhys: public FrictPhys{
 	public:
 	virtual ~MindlinPhys() {};
+	virtual Vector3r getRotStiffness();
+	
 	YADE_CLASS_BASE_DOC_ATTRS_CTOR(MindlinPhys,FrictPhys,"Representation of an interaction of the Hertz-Mindlin type.",
 			((Real,kno,0.0,,"Constant value in the formulation of the normal stiffness"))
 			((Real,kso,0.0,,"Constant value in the formulation of the tangential stiffness"))
