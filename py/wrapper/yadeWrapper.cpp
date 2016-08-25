@@ -1,29 +1,24 @@
 // 2007,2008 © Václav Šmilauer <eudoxos@arcig.cz> 
 
-#include<lib/base/Math.hpp>
-#include<unistd.h>
-#include<list>
-#include<signal.h>
+#include <boost/python/raw_function.hpp>
+#include <boost/bind.hpp>
+#include <boost/lambda/bind.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/algorithm/string.hpp>
 
-#include<boost/python/raw_function.hpp>
-#include<boost/bind.hpp>
-#include<boost/lambda/bind.hpp>
-#include<boost/thread/thread.hpp>
-#include<boost/date_time/posix_time/posix_time.hpp>
-#include<boost/algorithm/string.hpp>
+#include <lib/base/Logging.hpp>
+#include <lib/pyutil/gil.hpp>
+#include <lib/pyutil/raw_constructor.hpp>
+#include <lib/pyutil/doc_opts.hpp>
+#include <core/Omega.hpp>
+#include <core/ThreadRunner.hpp>
+#include <core/FileGenerator.hpp>
+#include <core/EnergyTracker.hpp>
 
-#include<lib/base/Logging.hpp>
-#include<lib/pyutil/gil.hpp>
-#include<lib/pyutil/raw_constructor.hpp>
-#include<lib/pyutil/doc_opts.hpp>
-#include<core/Omega.hpp>
-#include<core/ThreadRunner.hpp>
-#include<core/FileGenerator.hpp>
-#include<core/EnergyTracker.hpp>
+#include <pkg/dem/STLImporter.hpp>
 
-#include<pkg/dem/STLImporter.hpp>
-
-#include<pkg/common/Dispatching.hpp>
+#include <pkg/common/Dispatching.hpp>
 #include <core/GlobalEngine.hpp>
 #include <core/PartialEngine.hpp>
 #include <core/Functor.hpp>
@@ -34,7 +29,6 @@
 
 #include <core/Clump.hpp>
 #include <pkg/common/Sphere.hpp>
-
 #include <boost/math/special_functions/nonfinite_num_facets.hpp>
 
 #include <locale>
@@ -251,7 +245,8 @@ class pyBodyContainer{
 				if (c == a*numSphereList/numReplaceTmp) {
 					bpListTmp[a] = b; a++;
 					posTmp.push_back(c);//remember position in sphereList
-				} c++;
+				}
+				c++;
 			}
 			for (int jj = 0; jj < a; jj++) {
 				sphereList.erase(sphereList.begin()+posTmp[jj]-jj);//remove bodies from sphereList, that were already found
@@ -259,17 +254,7 @@ class pyBodyContainer{
 			}
 			
 			//adapt position- and radii-informations and replace spheres from bpListTmp by clumps:
-			#ifdef YADE_OPENMP
-			omp_lock_t locker;
-			omp_init_lock(&locker);//since bodies are created and deleted in following sections, it is neccessary to lock critical parts of the code (avoid seg fault)
-			#pragma omp parallel for schedule(dynamic) shared(locker)
-			for(int i=0; i<numReplaceTmp; i++) {
-				while (! omp_test_lock(&locker)) usleep(1);
-				const shared_ptr<Body>& b = bpListTmp[i];
-				LOG_DEBUG("replaceByClumps: Started processing body "<<bpListTmp[i]->id<<" in parallel ...");
-			#else
 			FOREACH (const shared_ptr<Body>& b, bpListTmp) {
-			#endif
 				//get sphere, that should be replaced:
 				const Sphere* sphere = YADE_CAST<Sphere*> (b->shape.get());
 				shared_ptr<Material> matTmp = b->material;
@@ -313,10 +298,6 @@ class pyBodyContainer{
 					LOG_DEBUG("New body (sphere) "<<newSphere->id<<" added.");
 					idsTmp[jj] = newSphere->id;
 				}
-				//cout << "thread " << omp_get_thread_num() << " unsets locker" << endl;
-				#ifdef YADE_OPENMP
-				omp_unset_lock(&locker);//end of critical section
-				#endif
 				Body::id_t newClumpId = clump(idsTmp, discretization);
 				ret.append(py::make_tuple(newClumpId,idsTmp));
 				erase(b->id,false);
@@ -341,7 +322,7 @@ class pyBodyContainer{
 					R2 = 0.0; dens = 0.0; vol = 0.0;
 					const shared_ptr<Clump>& clump=YADE_PTR_CAST<Clump>(b->shape);
 					std::map<Body::id_t,Se3r>& members = clump->members;
-					FOREACH(MemberMap::value_type& mm, members){
+					for(MemberMap::value_type& mm : members){
 						const Body::id_t& memberId=mm.first;
 						const shared_ptr<Body>& member=Body::byId(memberId,scene);
 						assert(member->isClumpMember());
@@ -460,12 +441,14 @@ class pyForceContainer{
 		Vector3r torque_get(long id, bool sync){ checkId(id); if (!sync) return scene->forces.getTorqueSingle(id); scene->forces.sync(); return scene->forces.getTorque(id);}
 		Vector3r move_get(long id){ checkId(id); return scene->forces.getMoveSingle(id); }
 		Vector3r rot_get(long id){ checkId(id); return scene->forces.getRotSingle(id); }
-		void force_add(long id, const Vector3r& f, bool permanent){  checkId(id); if (!permanent) scene->forces.addForce (id,f); else scene->forces.addPermForce (id,f); }
-		void torque_add(long id, const Vector3r& t, bool permanent){ checkId(id); if (!permanent) scene->forces.addTorque(id,t); else scene->forces.addPermTorque(id,t);}
+		void force_add(long id, const Vector3r& f, bool permanent){  checkId(id); if (!permanent) scene->forces.addForce (id,f); else { LOG_WARN("O.forces.addF(...,permanent=True) is deprecated, use O.forces.setPermF(...) instead"); scene->forces.setPermForce (id,f); } }
+		void torque_add(long id, const Vector3r& t, bool permanent){ checkId(id); if (!permanent) scene->forces.addTorque(id,t); else { LOG_WARN("O.forces.addT(...,permanent=True) is deprecated, use O.forces.setPermT(...) instead"); scene->forces.setPermTorque(id,t); } }
 		void move_add(long id, const Vector3r& t){   checkId(id); scene->forces.addMove(id,t);}
 		void rot_add(long id, const Vector3r& t){    checkId(id); scene->forces.addRot(id,t);}
 		Vector3r permForce_get(long id){  checkId(id); return scene->forces.getPermForce(id);}
 		Vector3r permTorque_get(long id){  checkId(id); return scene->forces.getPermTorque(id);}
+		void permForce_set (long id, const Vector3r& f){ checkId(id); scene->forces.setPermForce (id,f); }
+		void permTorque_set(long id, const Vector3r& t){ checkId(id); scene->forces.setPermTorque(id,t); }
 		void reset(bool resetAll) {scene->forces.reset(scene->iter,resetAll);}
 		long syncCount_get(){ return scene->forces.syncCount;}
 		void syncCount_set(long count){ scene->forces.syncCount=count;}
@@ -872,7 +855,7 @@ BOOST_PYTHON_MODULE(wrapper)
 		.def("withBody",&pyInteractionContainer::withBody,"Return list of real interactions of given body.")
 		.def("withBodyAll",&pyInteractionContainer::withBodyAll,"Return list of all (real as well as non-real) interactions of given body.")
 		.def("all",&pyInteractionContainer::getAll,(py::arg("onlyReal")=false),"Return list of all interactions. Virtual interaction are filtered out if onlyReal=True, else (default) it dumps the full content.")
-		.def("eraseNonReal",&pyInteractionContainer::eraseNonReal,"Erase all interactions that are not :yref:`real <InteractionContainer.isReal>`.")
+		.def("eraseNonReal",&pyInteractionContainer::eraseNonReal,"Erase all interactions that are not :yref:`real <Interaction.isReal>`.")
 		.def("erase",&pyInteractionContainer::erase,"Erase one interaction, given by id1, id2 (internally, ``requestErase`` is called -- the interaction might still exist as potential, if the :yref:`Collider` decides so).")
 		.add_property("serializeSorted",&pyInteractionContainer::serializeSorted_get,&pyInteractionContainer::serializeSorted_set)
 		.def("clear",&pyInteractionContainer::clear,"Remove all interactions, and invalidate persistent collider data (if the collider supports it).");
@@ -886,10 +869,12 @@ BOOST_PYTHON_MODULE(wrapper)
 		.def("m",&pyForceContainer::torque_get,(py::arg("id"),py::arg("sync")=false),"Deprecated alias for t (torque).")
 		.def("move",&pyForceContainer::move_get,(py::arg("id")),"Displacement applied on body.")
 		.def("rot",&pyForceContainer::rot_get,(py::arg("id")),"Rotation applied on body.")
-		.def("addF",&pyForceContainer::force_add,(py::arg("id"),py::arg("f"),py::arg("permanent")=false),"Apply force on body (accumulates).\n\n # If permanent=false (default), the force applies for one iteration, then it is reset by ForceResetter. \n # If permanent=true, it persists over iterations, until it is overwritten by another call to addF(id,f,True) or removed by reset(resetAll=True). The permanent force on a body can be checked with permF(id).")
-		.def("addT",&pyForceContainer::torque_add,(py::arg("id"),py::arg("t"),py::arg("permanent")=false),"Apply torque on body (accumulates). \n\n # If permanent=false (default), the torque applies for one iteration, then it is reset by ForceResetter. \n # If permanent=true, it persists over iterations, until it is overwritten by another call to addT(id,f,True) or removed by reset(resetAll=True). The permanent torque on a body can be checked with permT(id).")
+		.def("addF",&pyForceContainer::force_add,(py::arg("id"),py::arg("f"),py::arg("permanent")=false),"Apply force on body (accumulates). The force applies for one iteration, then it is reset by ForceResetter. \n # permanent parameter is deprecated, instead of addF(...,permanent=True) use setPermF(...).")
+		.def("addT",&pyForceContainer::torque_add,(py::arg("id"),py::arg("t"),py::arg("permanent")=false),"Apply torque on body (accumulates). The torque applies for one iteration, then it is reset by ForceResetter. \n # permanent parameter is deprecated, instead of addT(...,permanent=True) use setPermT(...).")
 		.def("permF",&pyForceContainer::permForce_get,(py::arg("id")),"read the value of permanent force on body (set with setPermF()).")
 		.def("permT",&pyForceContainer::permTorque_get,(py::arg("id")),"read the value of permanent torque on body (set with setPermT()).")
+		.def("setPermF",&pyForceContainer::permForce_set, "set the value of permanent force on body.")
+		.def("setPermT",&pyForceContainer::permTorque_set,"set the value of permanent torque on body.")
 		.def("addMove",&pyForceContainer::move_add,(py::arg("id"),py::arg("m")),"Apply displacement on body (accumulates).")
 		.def("addRot",&pyForceContainer::rot_add,(py::arg("id"),py::arg("r")),"Apply rotation on body (accumulates).")
 		.def("reset",&pyForceContainer::reset,(py::arg("resetAll")=true),"Reset the force container, including user defined permanent forces/torques. resetAll=False will keep permanent forces/torques unchanged.")
