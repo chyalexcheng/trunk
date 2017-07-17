@@ -485,12 +485,20 @@ py::tuple Shop::getDepthProfiles(Real vCell, int nCell, Real dz, Real zRef,bool 
 	Real zInf;
 	Real zSup;
 	Real volPart;
+	Real I_x;
+	Real I_z;
 
 	vector<Real> velAverageX(nCell,0.0);
-        vector<Real> velAverageY(nCell,0.0);
-        vector<Real> velAverageZ(nCell,0.0);
+    vector<Real> velAverageY(nCell,0.0);
+    vector<Real> velAverageZ(nCell,0.0);
 	vector<Real> phiAverage(nCell,0.0);
 
+	vector<Real> angVelAverageX(nCell,0.0);
+	vector<Real> angVelAverageY(nCell,0.0);
+	vector<Real> angVelAverageZ(nCell,0.0);
+	vector<Real> totalIx(nCell,0.0);
+	vector<Real> totalIz(nCell,0.0);
+	
 	//Loop over the particles
 	FOREACH(const shared_ptr<Body>& b, *Omega::instance().getScene()->bodies){
 		shared_ptr<Sphere> s=YADE_PTR_DYN_CAST<Sphere>(b->shape); if(!s) continue;
@@ -519,8 +527,18 @@ py::tuple Shop::getDepthProfiles(Real vCell, int nCell, Real dz, Real zRef,bool 
 
 				phiAverage[numLayer]+=volPart;
 				velAverageX[numLayer]+=volPart*b->state->vel[0];
-                                velAverageY[numLayer]+=volPart*b->state->vel[1];
-                                velAverageZ[numLayer]+=volPart*b->state->vel[2];
+				velAverageY[numLayer]+=volPart*b->state->vel[1];
+				velAverageZ[numLayer]+=volPart*b->state->vel[2];
+				
+				//Analytical formulation of the moment of inertia of a spherical segment
+				I_x = Mathr::PI*(-1./4.*pow(s->radius,4)*zInf + 1./4.*pow(s->radius,4)*zSup - 1./6.*pow(s->radius,2)*pow(zInf,3) + 1./6.*pow(s->radius,2)*pow(zSup,3) + 3./20.*pow(zInf,5) - 3./20.*pow(zSup,5));
+				I_z = Mathr::PI*(-1./2.*pow(s->radius,4)*zInf + 1./2.*pow(s->radius,4)*zSup + 1./3.*pow(s->radius,2)*pow(zInf,3) - 1./3.*pow(s->radius,2)*pow(zSup,3) - 1./10.*pow(zInf,5) + 1./10.*pow(zSup,5));
+				totalIx[numLayer]+=I_x;
+				totalIz[numLayer]+=I_z;
+				angVelAverageX[numLayer]+=I_x*b->state->angVel[0];
+				angVelAverageY[numLayer]+=I_x*b->state->angVel[1];
+				angVelAverageZ[numLayer]+=I_z*b->state->angVel[2];
+
 			}
 			numLayer+=1;
 		}
@@ -529,18 +547,24 @@ py::tuple Shop::getDepthProfiles(Real vCell, int nCell, Real dz, Real zRef,bool 
 	for(int n=0;n<nCell;n++){
 		if (phiAverage[n]!=0){
 			velAverageX[n]/=phiAverage[n];
-                        velAverageY[n]/=phiAverage[n];
-                        velAverageZ[n]/=phiAverage[n];
+			velAverageY[n]/=phiAverage[n];
+			velAverageZ[n]/=phiAverage[n];
+			angVelAverageX[n]/=totalIx[n];
+			angVelAverageY[n]/=totalIx[n];
+			angVelAverageZ[n]/=totalIz[n];
 			//Normalize the concentration after
 			phiAverage[n]/=vCell;
 		}
 		else {
 			velAverageX[n] = 0.0;
-                        velAverageY[n] = 0.0;
-                        velAverageZ[n] = 0.0;
+			velAverageY[n] = 0.0;
+			velAverageZ[n] = 0.0;
+			angVelAverageX[n] = 0.0;
+			angVelAverageY[n] = 0.0;
+			angVelAverageZ[n] = 0.0;
 		}
 	}
-	return py::make_tuple(phiAverage,velAverageX,velAverageY,velAverageZ);
+	return py::make_tuple(phiAverage,velAverageX,velAverageY,velAverageZ,angVelAverageX,angVelAverageY,angVelAverageZ);
 }
 
 
