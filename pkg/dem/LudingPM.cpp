@@ -117,20 +117,25 @@ bool Law2_ScGeom_LudingPhys_Basic::go(shared_ptr<IGeom>& _geom, shared_ptr<IPhys
   
   if ( k2DeltTtmp >= phys.k1*Delt) {
     if (Delt<phys.DeltPMax){
-      forceHys = phys.k1*Delt;                                        
+      forceHys = phys.k1*Delt;
+      phys.kn = phys.k1;
     } else {
-      forceHys = k2DeltTtmp;                                        
+      forceHys = k2DeltTtmp;
+      phys.kn = phys.k2;
     }
   } else if (k2DeltTtmp > -phys.kc*Delt and k2DeltTtmp < phys.k1*Delt) {
     forceHys = k2DeltTtmp;
+    phys.kn = phys.k2;
   } else if (k2DeltTtmp<=-phys.kc*Delt) {
     if ((Delt - phys.DeltPrev) < 0) {
       forceHys = -phys.kc*Delt;
+      phys.kn = phys.kc;
       phys.DeltMax = Delt*(phys.k2 + phys.kc)/(phys.k2 - phys.k1);                     // [Singh2013], equation (9)
       phys.DeltNull  = std::min((1.0 - phys.k1/phys.k2)*phys.DeltMax, phys.DeltPNull);  // [Luding2008], equation over Fig 1
                                                                                         // [Singh2013], equation (8)
     } else {
       forceHys = k2DeltTtmp;
+      phys.kn = phys.k2;
     }
   }
   
