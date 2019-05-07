@@ -301,6 +301,7 @@ bool Law2_ScGeom_MindlinPhys_Mindlin::go(shared_ptr<IGeom>& ig, shared_ptr<IPhys
 	// Inclusion of local damping if requested
 	// viscous damping is defined for both linear and non-linear elastic case 
 	if (useDamping && LinDamp){
+		/***
 		Real mbar = (!b1->isDynamic() && b2->isDynamic()) ? de2->mass : ((!b2->isDynamic() && b1->isDynamic()) ? de1->mass : (de1->mass*de2->mass / (de1->mass + de2->mass))); // get equivalent mass if both bodies are dynamic, if not set it equal to the one of the dynamic body
 		//Real mbar = de1->mass*de2->mass / (de1->mass + de2->mass); // equivalent mass
 		Real Cn_crit = 2.*sqrt(mbar*phys->kn); // Critical damping coefficient (normal direction)
@@ -308,6 +309,9 @@ bool Law2_ScGeom_MindlinPhys_Mindlin::go(shared_ptr<IGeom>& ig, shared_ptr<IPhys
 		// Note: to compare with the analytical solution you provide cn and cs directly (since here we used a different method to define c_crit)
 		cn = Cn_crit*phys->betan; // Damping normal coefficient
 		cs = Cs_crit*phys->betas; // Damping tangential coefficient
+		***/
+		cn = phys->betan*sqrt(uN*4*R); // Damping normal coefficient
+		cs = phys->betas*sqrt(uN*4*R); // Damping tangential coefficient		
 		if(phys->kn<0 || phys->ks<0){ cerr<<"Negative stiffness kn="<<phys->kn<<" ks="<<phys->ks<<" for ##"<<b1->getId()<<"+"<<b2->getId()<<", step "<<scene->iter<<endl; }
 	}
 	else if (useDamping){ // (see Tsuji, 1992)

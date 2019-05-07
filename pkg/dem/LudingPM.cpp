@@ -223,3 +223,4 @@ bool Law2_ScGeom_LudingPhys_Basic::go(shared_ptr<IGeom>& _geom, shared_ptr<IPhys
     addTorque(id2, c2x.cross(f),scene);
   }
   return true;
+}
