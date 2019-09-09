@@ -10,6 +10,7 @@
 #include<core/Scene.hpp>
 #include<core/Clump.hpp>
 #include<lib/base/Math.hpp>
+#include<pkg/common/Sphere.hpp>
 
 
 YADE_PLUGIN((NewtonIntegrator));
@@ -149,6 +150,11 @@ void NewtonIntegrator::action()
 				if(state->mass<=0 && ((state->blockedDOFs & State::DOF_XYZ) != State::DOF_XYZ)) throw runtime_error(("NewtonIntegrator: #"+boost::lexical_cast<string>(id)+" has some linear accelerations enabled, but State::mass is non-positive."));
 				if(state->inertia.minCoeff()<=0 && ((state->blockedDOFs & State::DOF_RXRYRZ) != State::DOF_RXRYRZ)) throw runtime_error(("NewtonIntegrator: #"+boost::lexical_cast<string>(id)+" has some angular accelerations enabled, but State::inertia contains non-positive terms."));
 			#endif
+
+			// add contribution of background damping
+			if (linDamping != 0) {f -= linDamping*state->vel;}
+			const Sphere* sphere = dynamic_cast<Sphere*>(b->shape.get());
+			if (rotDamping != 0) {m -= rotDamping*std::pow(sphere->radius,2.0)*state->angVel;}
 
 			// fluctuation velocity does not contain meanfield velocity in periodic boundaries
 			// in aperiodic boundaries, it is equal to absolute velocity

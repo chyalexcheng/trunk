@@ -251,6 +251,11 @@ bool Law2_ScGeom_MindlinPhys_Mindlin::go(shared_ptr<IGeom>& ig, shared_ptr<IPhys
 	const shared_ptr<Body>& b1=Body::byId(id1,scene); 
 	const shared_ptr<Body>& b2=Body::byId(id2,scene); 
 
+	/* from interaction geometry */
+	Real Da = scg->refR1>0 ? scg->refR1 : scg->refR2; 
+	Real Db = scg->refR2;
+	Real R = Da*Db/(Da+Db); // equivalent radius
+
 	bool useDamping=(phys->betan!=0. || phys->betas!=0. || phys->alpha!=0.);
 	bool LinDamp=true;
 	if (phys->alpha!=0.) {LinDamp=false;} // use non linear damping

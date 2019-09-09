@@ -15,7 +15,8 @@ class LudingMat : public Material {
     ((Real,kc,NaN,,"Slope of irreversible, tensile adhesive branch"))
     ((Real,ks,NaN,,"Shear stiffness"))
     ((Real,PhiF,NaN,,"Dimensionless plasticity depth"))
-    ((Real,G0,NaN,,"Viscous damping"))
+    ((Real,G0_n,NaN,,"Normal viscous damping"))
+    ((Real,G0_s,NaN,,"Shear viscous damping"))
     ((Real,frictionAngle,NaN,,"Friction angle [rad]")),
     createIndex();
   );
@@ -39,7 +40,9 @@ class LudingPhys : public FrictPhys{
 		((Real,DeltNull,NaN,,"Force free overlap, plastic contact deformation"))
 		((Real,DeltPNull,NaN,,"Max force free overlap, plastic contact deformation"))
 		((Real,DeltPrev,NaN,,"Previous value of delta"))
-		((Real,G0,NaN,,"Viscous damping")),
+		((Real,G0_n,NaN,,"Normal viscous damping"))
+		((Real,G0_s,NaN,,"Shear viscous damping"))
+		((Vector3r,shearViscous,Vector3r::Zero(),,"Shear viscous component")),
 		createIndex();
 	)
 };

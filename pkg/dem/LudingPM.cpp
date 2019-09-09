@@ -21,7 +21,8 @@ void Ip2_LudingMat_LudingMat_LudingPhys::go(const shared_ptr<Material>& b1, cons
   const Real kp1 = mat1->kp; const Real kp2 = mat2->kp;
   const Real kc1 = mat1->kc; const Real kc2 = mat2->kc;
   const Real ks1 = mat1->ks; const Real ks2 = mat2->ks;
-  const Real G01 = mat1->G0; const Real G02 = mat2->G0;
+  const Real G01_n = mat1->G0_n; const Real G02_n = mat2->G0_n;
+  const Real G01_s = mat1->G0_s; const Real G02_s = mat2->G0_s;
   const Real PhiF1 = mat1->PhiF; const Real PhiF2 = mat2->PhiF;
 
   LudingPhys* phys = new LudingPhys();
@@ -32,7 +33,8 @@ void Ip2_LudingMat_LudingMat_LudingPhys::go(const shared_ptr<Material>& b1, cons
   phys->ks = this->reduced(ks1, ks2);
   phys->PhiF = this->reduced(PhiF1, PhiF2);
   phys->k2 = 0.0;
-  phys->G0 = this->reduced(G01, G02);
+  phys->G0_n = this->reduced(G01_n, G02_n);
+  phys->G0_s = this->reduced(G01_s, G02_s);
   
   
   Real a1 = 0.0;
@@ -67,13 +69,6 @@ void Ip2_LudingMat_LudingMat_LudingPhys::go(const shared_ptr<Material>& b1, cons
   } else {
     a2 = s2->radius + a2dR;
   }
-    
-  if (phys->k1 >= phys->kp) {
-    throw runtime_error("k1 have to be less as kp!");     // [Luding2008], sentence after equation (6); kp = k2^
-                                                          // [Singh2013], sentence after equation (6)
-  }
-  
-  
   
   phys->tangensOfFrictionAngle = std::tan(std::min(mat1->frictionAngle, mat2->frictionAngle)); 
   
@@ -114,7 +109,10 @@ bool Law2_ScGeom_LudingPhys_Basic::go(shared_ptr<IGeom>& _geom, shared_ptr<IPhys
   if (Delt  < 0 ) return false;
 
   Real forceHys = 0.0;
-  
+
+  if (phys.k1 == phys.kp) {
+    forceHys = phys.k1*Delt;
+  } else {
   if (phys.DeltMax/phys.DeltPMax >= 1.0) {                           // [Luding2008], equation (8)
     phys.k2 = phys.kp;                                               // [Singh2013], equation (10)
   } else {
@@ -163,7 +161,7 @@ bool Law2_ScGeom_LudingPhys_Basic::go(shared_ptr<IGeom>& _geom, shared_ptr<IPhys
       phys.kn = phys.k2;
     }
   }
-  
+  }
   phys.DeltPrev = Delt;
   
   //===================================================================
@@ -193,10 +191,10 @@ bool Law2_ScGeom_LudingPhys_Basic::go(shared_ptr<IGeom>& _geom, shared_ptr<IPhys
   const Vector3r shearVelocity	= relativeVelocity-normalVelocity*geom.normal;
 
   shearForce += phys.ks*dt*shearVelocity;     // the elastic shear force have a history, but
-  Vector3r shearForceVisc = Vector3r::Zero(); // the viscous shear damping haven't a history because it is a function of the instant velocity 
+  phys.shearViscous = Vector3r::Zero(); // the viscous shear damping haven't a history because it is a function of the instant velocity 
 
   
-  phys.normalForce = (forceHys + phys.G0 * normalVelocity)*geom.normal;
+  phys.normalForce = (forceHys + phys.G0_n * normalVelocity)*geom.normal;
   
   
   const Real maxFs = phys.normalForce.squaredNorm() * std::pow(phys.tangensOfFrictionAngle,2);
@@ -208,15 +206,15 @@ bool Law2_ScGeom_LudingPhys_Basic::go(shared_ptr<IGeom>& _geom, shared_ptr<IPhys
   else 
   {
     // shearForceVisc = phys.cs*shearVelocity; //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-       shearForceVisc = phys.G0*shearVelocity; 
-  }
+       phys.shearViscous = phys.G0_s*shearVelocity;
+  } 
   //===================================================================
   //===================================================================
   //===================================================================
   
 
    if (I->isActive) {
-    const Vector3r f = phys.normalForce + shearForce + shearForceVisc;
+    const Vector3r f = phys.normalForce + shearForce + phys.shearViscous;
     addForce (id1,-f,scene);
     addForce (id2, f,scene);
     addTorque(id1,-c1x.cross(f),scene);
